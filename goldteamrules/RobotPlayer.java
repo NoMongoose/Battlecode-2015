@@ -12,6 +12,9 @@ public class RobotPlayer {
 	static Team enemyTeam;
 	static int myRange;
 	static Random rand;
+	static MapLocation homebase;
+	static MapLocation enemybase;
+	static MapLocation[] towers;
 	
 
 	public static void run(RobotController boop){
@@ -19,15 +22,18 @@ public class RobotPlayer {
 		rand = new Random(rc.getID());
 		
 		myRange = rc.getType().attackRadiusSquared;
-		MapLocation enemyLoc = rc.senseEnemyHQLocation();
-		Direction lastDirection = null;
 		myTeam = rc.getTeam();
 		enemyTeam = myTeam.opponent();
 		RobotInfo[] myRobots;
 		
 		// Get own tower locations
-		MapLocation[] towers = rc.senseTowerLocations();
+		towers = rc.senseTowerLocations();
 		int towerCount = towers.length;
+		
+		// Get own HQ location
+		homebase = rc.senseHQLocation();
+		// Get enemy HQ location
+		enemybase = rc.senseEnemyHQLocation();
 		
 		// Generate  Fate
 		int fate = (int) (100 * Math.random());
@@ -39,6 +45,8 @@ public class RobotPlayer {
 			fate = hireBasher(fate, towerCount);
 		}
 		
+		// Last direction moved as int 0->7
+		int lastDir = (int)(8*Math.random());
 		
 		while(true){
 			
@@ -56,6 +64,7 @@ public class RobotPlayer {
 							tims++;
 						}
 					}
+					
 
 					if (rc.isCoreReady() && rc.getTeamOre() >= 100 && tims < 20) {
 						trySpawn(directions[rand.nextInt(8)], RobotType.BEAVER);
@@ -69,9 +78,12 @@ public class RobotPlayer {
 						attackSomething();
 					}
 					if (rc.isCoreReady()) {
-						if(fate == 0){
-							wander();
-							
+						// Jong-Il
+						if(fate == 0 || true){
+							// Choose mine or wander
+							if( Math.random() > .5)
+								lastDir = wander(lastDir);
+							else tryMine();
 						}
 					}
 
@@ -93,30 +105,56 @@ public class RobotPlayer {
 			rc.yield();
 		}
 	}
-// This method will attack an enemy in sight, if there is one
-static void attackSomething() throws GameActionException {
-	RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
-	if (enemies.length > 0) {
-		rc.attackLocation(enemies[0].location);
-	}
-}
 	
-	static void tryMove(Direction d) throws GameActionException {
-		int offsetIndex = 0;
-		int[] offsets = {0,1,-1,2,-2};
-		int dirint = directionToInt(d);
-		boolean blocked = false;
-		while (offsetIndex < 5 && !rc.canMove(directions[(dirint+offsets[offsetIndex]+8)%8])) {
-			offsetIndex++;
+	
+	static boolean isNearHome(int threshold){
+		MapLocation me = rc.getLocation();
+		return threshold * me.distanceSquaredTo(homebase) < me.distanceSquaredTo(enemybase);
+	}
+	
+	static int wander(int lDir){
+		int newDir;
+		if( isNearHome(4))
+			newDir = lDir - 3 + (int) (6*Math.random());
+		else{
+			newDir = directionToInt(rc.getLocation().directionTo(homebase));
 		}
-		if (offsetIndex < 5) {
-			rc.move(directions[(dirint+offsets[offsetIndex]+8)%8]);
+		tryMove(intToDirection(newDir));
+		return newDir;
+	}
+
+	// This method will attack an enemy in sight, if there is one
+	static void attackSomething() throws GameActionException {
+		RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
+		if (enemies.length > 0) {
+			rc.attackLocation(enemies[0].location);
+		}
+	}
+	
+	static void tryMove(Direction d){
+		try {
+		
+			int offsetIndex = 0;
+			int[] offsets = {0,1,-1,2,-2};
+			int dirint = directionToInt(d);
+			while (offsetIndex < 5 && !rc.canMove(directions[(dirint+offsets[offsetIndex]+8)%8])) {
+				offsetIndex++;
+			}
+			if (offsetIndex < 5) {
+				
+					rc.move(directions[(dirint+offsets[offsetIndex]+8)%8]);
+			}
+		} catch (GameActionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 		}
 	}
 	
 	static void tryMine(){
 		try{
 			if(rc.canMine() && rc.isCoreReady()){
+
+				
 				rc.mine();
 			}
 		} catch (Exception e) {
@@ -128,7 +166,6 @@ static void attackSomething() throws GameActionException {
 		int offsetIndex = 0;
 		int[] offsets = {0,1,-1,2,-2,3,-3,4};
 		int dirint = directionToInt(d);
-		boolean blocked = false;
 		while (offsetIndex < 8 && !rc.canMove(directions[(dirint+offsets[offsetIndex]+8)%8])) {
 			offsetIndex++;
 		}
@@ -140,7 +177,6 @@ static void attackSomething() throws GameActionException {
 		int offsetIndex = 0;
 		int[] offsets = {0,1,-1,2,-2,3,-3,4};
 		int dirint = directionToInt(d);
-		boolean blocked = false;
 		while (offsetIndex < 8 && !rc.canSpawn(directions[(dirint+offsets[offsetIndex]+8)%8], type)) {
 			offsetIndex++;
 		}
@@ -169,6 +205,29 @@ static void attackSomething() throws GameActionException {
 				return 7;
 			default:
 				return -1;
+		}
+	}
+	
+	static Direction intToDirection(int d) {
+		switch(d) {
+			case 0:
+				return Direction.NORTH;
+			case 1:
+				return Direction.NORTH_EAST;
+			case 2:
+				return Direction.EAST;
+			case 3:
+				return Direction.SOUTH_EAST;
+			case 4:
+				return Direction.SOUTH;
+			case 5:
+				return Direction.SOUTH_WEST;
+			case 6:
+				return Direction.WEST;
+			case 7:
+				return Direction.NORTH_WEST;
+			default:
+				return Direction.NONE;
 		}
 	}
 	
