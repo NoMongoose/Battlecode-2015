@@ -1,0 +1,63 @@
+Phase 1: map knowledge
+    Get map size
+        -sense enemy tower locations
+        -sense friendly tower locations
+        -find two towers that correspond (i.e. they are mirror images of each other)
+            -location enemyX, enemyY, friendX, friendY
+            -map width_sq = 2(friendX + (friendX+enemyX/2))^2
+                -because midway point is the average of the two points, total length
+                 equals length of a point to the middle + length of that point to the
+                 edge
+            -map height_sq = 2(friendY + (friendY+enemyY/2))^2
+        -for rotational symmetry and diagonal flip symmetry:
+                -hypot_sq = width_sq+height_sq
+                    -because of pythagorus
+                -hypot_nodes = hypot_sq/96
+                    -because drone vision radius is sqrt(24) -> number of diameters 
+                     to fill up hypoteneuse = hypot/(2*radius) = hypot^2/(2^2*radius^2) 
+                     = hypot_sq/(4*24) = hypot_sq/96
+                -hypot_nodes_sq = hypot_nodes^2
+                -list length hypot_nodes of locations to send drones, location at
+                 position n is (width_sq/(96*hypot_nodes_sq), height_sq/(96*hypot_nodes_sq)
+                    -because making a point a triangle with the node's location, 
+                     the perpendicular bisector of a side, and  the corner that 
+                     would make it a right triangle is similar to the triangle of 
+                     half the map
+        -for vertical symmetry (north is mirror of south, switch xs and ys for horizontal)
+                -nodes = width_sq/96
+                -nodes_sq = nodes^2
+                -list lenfth nodes of locations to send drones, location at position
+                 n is (n(widths_sq/nodes_sq), sqrt(height_sq)/2)
+        -universal for all symmetries
+            -make one drone for each node, send that drone to that node. keep 
+             track of all tiles passed over, if it is an undiscovered tile and 
+             VOID, send a message to hq
+                -hq only needs to keep track of where void tiles are on half the 
+                 map to have perfect map information
+                -also keep track of where enemy structures are (if any are run into)
+        -when all drones have reached their location, switch to hole-filling mode
+            -pick a random undiscovered tile and navigate to it until all holes 
+             are filled
+            -once map info is complete, wander to find enemy structures and note
+             locations
+        -if a node gets attacked, send a message to make a new drone to go to the
+         same location and self-destruct (never fails)
+
+Phase 2: pathfinding
+    -make one computer for each enemy tower
+    -use dijkstra algorithm to create a map for each tower
+    -optimal path to that tower can be found from any location on the map
+    -only needs to be calculated once
+    -each unit has a random number assigned to it from 1-numTowers
+    -once offense starts, all units read the dijkstra info for their tower and
+     begin pathfinding
+
+This method has severl upsides and downsides. The upside is that once calculated, 
+nearly no effort needs to go into pathfinding for the rest of the game. It is slow
+and takes a lot of bytecodes, but the idea of the strategy is to not need pathfinding
+until late into the game anyway. Unfortunately, using this method means that bashers
+will need to wander to find out towers at the very beginning, but we might be able
+to implement a simpler algorithm for after we have perfect info but before we have
+dijkstra maps. Alternatively, we can work on optimizing wandering. Finding the maps
+is still important, however, as out plan involves efficient execution and timing
+of the victory (shooting at them with rockets)
