@@ -1,0 +1,7 @@
+CRITICAL NOTES
+
+DO NOT USE Math.Random(), IT DOES NOT YEILD RANDOM VALUES FOR EACH UNIT
+
+TODO
+
+Include Solution for no towers, right now DIVIDE BY ZERO ERROR
