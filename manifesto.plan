@@ -1,0 +1,29 @@
+Operation Best Offense (Good Defense)
+
+Plan:
+
+Defensive phase:
+    -Surround towers with Bashers, prioritize furthest towers
+    -Create drones to find paths to enemy towers
+    -Build Launchers
+    -Calculate turns to win, switch plans if run out of time
+    -Build sanitation plants (handwashing stations)
+    -Mine lots of ore
+    -Stockpile Tanks
+
+    Switch to offensive phase when 12 launchers have been built
+    Switch to offensive phase abruptly if total tower health falls below 75%
+    Switch to control phase if total tower health falls below 75% before turn 300
+
+Offensive Phase:
+    -Build & dispatch Bashers
+    -Route whole force to closest enemy tower
+    -If the change is brought on abruptly, enrage all units
+
+Control Phase:
+    -Hunt barracks
+    -Send all units to tower closest to nearest enemy barracks
+
+Method:
+
+To be announced
