@@ -1,4 +1,4 @@
-package goldteamrules;
+package team072;
 
 import java.util.Random;
 
@@ -348,3 +348,4 @@ public class RobotPlayer {
 	
 	
 }
+
