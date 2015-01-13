@@ -39,7 +39,6 @@ public class RobotPlayer {
 		
 		// Generate  Fate
 		int fate = rand.nextInt(100);
-		System.out.println("Fate init: " + fate);
 		
 		// Hire
 		if(rc.getType()==RobotType.BEAVER){
@@ -55,6 +54,8 @@ public class RobotPlayer {
 		while(true){
 			
 			try {
+				double ore = rc.getTeamOre();
+				
 				if(rc.getType()==RobotType.HQ){
 					if (rc.isWeaponReady()) {
 						attackSomething();
@@ -70,7 +71,7 @@ public class RobotPlayer {
 					}
 					
 
-					if (rc.isCoreReady() && rc.getTeamOre() >= 100 && tims < 10) {
+					if (rc.isCoreReady() && ore >= 100 && tims < 10) {
 						trySpawn(directions[rand.nextInt(8)], RobotType.BEAVER);
 					}
 				}else if(rc.getType()==RobotType.TOWER){
@@ -82,13 +83,17 @@ public class RobotPlayer {
 						attackSomething();
 					}
 					if (rc.isCoreReady()) {
-						// Jong-Il the Wandering Miner
+						// Jong-Il the Wandering Janitor
 						if(fate == 0){
-							// Choose mine or wander
+							// Choose mine or wander or wash
 							if(rc.isCoreReady()){
-								if( rand.nextInt(10) >= 5)
-								lastDir = wander(lastDir);
-							else tryMine();
+								int n = rand.nextInt(20);
+								if( n >= 11)
+									lastDir = wander(lastDir);
+								else if(n >=2)
+									tryMine();
+								else if(ore>=200)
+									tryBuild(Direction.NORTH,RobotType.HANDWASHSTATION);
 							}
 						// Bob the Barracks Builder
 						} else if(fate<7){
@@ -99,7 +104,7 @@ public class RobotPlayer {
 								tryMove(me.directionTo(tower));
 							} 
 							// If in range, build Barracks, assign new tower
-							else if (rc.isCoreReady() && rc.getTeamOre() >= 500) {
+							else if (rc.isCoreReady() && ore >= 500) {
 								tryBuild(me.directionTo(tower), RobotType.BARRACKS);
 								fate = 1 + rand.nextInt(towerCount);
 							}
@@ -109,12 +114,20 @@ public class RobotPlayer {
 					}
 
 				}else if(rc.getType()==RobotType.BARRACKS){
-					// Will trySpawn basher 1/10 of time
-					if (rc.isCoreReady() && rc.getTeamOre() >= 80 && rand.nextInt(10) == 0) {
+					// Will trySpawn basher 1/15 of time
+					if (rc.isCoreReady() && ore >= 80 && rand.nextInt(15) == 0) {
 						trySpawn(rc.getLocation().directionTo(towers[getNearTower()]), RobotType.BASHER);
 					}
 				}else if(rc.getType()==RobotType.BASHER){
-					// Move around closest tower
+					// Pursue enemy else move to closest tower
+					RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
+					int enemyCount = enemies.length;
+					MapLocation me = rc.getLocation();
+					if (rc.isCoreReady()&&enemyCount > 0) {
+						tryMove(me.directionTo(enemies[rand.nextInt(enemyCount)].location));
+					} else if(rc.isCoreReady()){
+						tryMove(me.directionTo(towers[getNearTower()]));
+					}
 				}
 				
 				
@@ -175,7 +188,6 @@ public class RobotPlayer {
 					rc.move(directions[(dirint+offsets[offsetIndex]+8)%8]);
 			}
 		} catch (GameActionException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 		}
 	}
@@ -264,27 +276,22 @@ public class RobotPlayer {
 	// Precondition: fate: (0,99)
 	// Returns Job 
 	// Jobs:
-	// 0 		Scout/Miner		Jong-Il
-	// 1-6 		Barracks		Bob
-	// 7-12		Helipad			Quincy
-	// 13-18 	Aerospace		Jones
-	// 19-24	Mine			Rick
+	// 0 		Wandering Janitor	Jong-Il
+	// 1-6 		Barracks			Bob
+	// 7-12		Helipad				Quincy
+	// 13-18 	Aerospace			Jones
+	// 19-24	Mine				Rick
 	static int hireTim(int fate){
-		System.out.println(fate);
 		if(fate <= 33){
 			System.out.println("Jong-Il");
 			return 0;
 		} else if(fate <= 59){
-			System.out.println("Bob");
 			return 1 + fate % towerCount;
 		} else if( fate <= 67){
-			System.out.println("Heli");
 			return 7 + fate % towerCount;
 		} else if( fate <= 82){
-			System.out.println("Aero");
 			return 13 + fate % towerCount;
 		} else{
-			System.out.println("Mine");
 			return 19 + fate % towerCount;
 		}
 	}
