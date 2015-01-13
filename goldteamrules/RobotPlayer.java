@@ -15,11 +15,13 @@ public class RobotPlayer {
 	static MapLocation homebase;
 	static MapLocation enemybase;
 	static MapLocation[] towers;
+	static int towerCount;
 	
 
 	public static void run(RobotController boop){
 		rc = boop;
 		rand = new Random(rc.getID());
+		
 		
 		myRange = rc.getType().attackRadiusSquared;
 		myTeam = rc.getTeam();
@@ -28,7 +30,7 @@ public class RobotPlayer {
 		
 		// Get own tower locations
 		towers = rc.senseTowerLocations();
-		int towerCount = towers.length;
+		towerCount = towers.length;
 		
 		// Get own HQ location
 		homebase = rc.senseHQLocation();
@@ -36,17 +38,19 @@ public class RobotPlayer {
 		enemybase = rc.senseEnemyHQLocation();
 		
 		// Generate  Fate
-		int fate = (int) (100 * Math.random());
+		int fate = rand.nextInt(100);
+		System.out.println("Fate init: " + fate);
 		
 		// Hire
 		if(rc.getType()==RobotType.BEAVER){
 			fate = hireTim(fate);
 		} else if(rc.getType()==RobotType.BASHER){
+			// Not used
 			fate = hireBasher(fate, towerCount);
 		}
 		
 		// Last direction moved as int 0->7
-		int lastDir = (int)(8*Math.random());
+		int lastDir = rand.nextInt(8);
 		
 		while(true){
 			
@@ -66,7 +70,7 @@ public class RobotPlayer {
 					}
 					
 
-					if (rc.isCoreReady() && rc.getTeamOre() >= 100 && tims < 20) {
+					if (rc.isCoreReady() && rc.getTeamOre() >= 100 && tims < 10) {
 						trySpawn(directions[rand.nextInt(8)], RobotType.BEAVER);
 					}
 				}else if(rc.getType()==RobotType.TOWER){
@@ -78,23 +82,39 @@ public class RobotPlayer {
 						attackSomething();
 					}
 					if (rc.isCoreReady()) {
-						// Jong-Il
-						if(fate == 0 || true){
+						// Jong-Il the Wandering Miner
+						if(fate == 0){
 							// Choose mine or wander
-							if( Math.random() > .5)
+							if(rc.isCoreReady()){
+								if( rand.nextInt(10) >= 5)
 								lastDir = wander(lastDir);
 							else tryMine();
+							}
+						// Bob the Barracks Builder
+						} else if(fate<7){
+							MapLocation me = rc.getLocation();
+							MapLocation tower = towers[fate-1];
+							// Move to tower?
+							if(rc.isCoreReady()&&me.distanceSquaredTo(tower) >= 10){
+								tryMove(me.directionTo(tower));
+							} 
+							// If in range, build Barracks, assign new tower
+							else if (rc.isCoreReady() && rc.getTeamOre() >= 500) {
+								tryBuild(me.directionTo(tower), RobotType.BARRACKS);
+								fate = 1 + rand.nextInt(towerCount);
+							}
+							
+							
 						}
 					}
 
-					
-					
-				}else if(rc.getType()==RobotType.AEROSPACELAB){
-					
-				}else if(rc.getType()==RobotType.LAUNCHER){
-					
-				} else if(rc.getType()==RobotType.MISSILE){
-					
+				}else if(rc.getType()==RobotType.BARRACKS){
+					// Will trySpawn basher 1/10 of time
+					if (rc.isCoreReady() && rc.getTeamOre() >= 80 && rand.nextInt(10) == 0) {
+						trySpawn(rc.getLocation().directionTo(towers[getNearTower()]), RobotType.BASHER);
+					}
+				}else if(rc.getType()==RobotType.BASHER){
+					// Move around closest tower
 				}
 				
 				
@@ -106,6 +126,16 @@ public class RobotPlayer {
 		}
 	}
 	
+	static int getNearTower(){
+		int index = 0;
+		int distance = 120*120;
+		MapLocation me = rc.getLocation();
+		for(int i = 0;i<towerCount;i++){
+			if(me.distanceSquaredTo(towers[i])<distance)
+				index = i;
+		}
+		return index;
+	}
 	
 	static boolean isNearHome(int threshold){
 		MapLocation me = rc.getLocation();
@@ -115,7 +145,7 @@ public class RobotPlayer {
 	static int wander(int lDir){
 		int newDir;
 		if( isNearHome(4))
-			newDir = lDir - 3 + (int) (6*Math.random());
+			newDir = lDir - 3 + rand.nextInt(7);
 		else{
 			newDir = directionToInt(rc.getLocation().directionTo(homebase));
 		}
@@ -232,24 +262,33 @@ public class RobotPlayer {
 	}
 	
 	// Precondition: fate: (0,99)
-	// Returns Job
+	// Returns Job 
 	// Jobs:
-	// 0 Scout/Miner	Jong-Il
-	// 1 Barracks		Bob
-	// 2 Helipad		Quincy
-	// 3 Aerospace		Jones
-	// 4 Mine			Rick
+	// 0 		Scout/Miner		Jong-Il
+	// 1-6 		Barracks		Bob
+	// 7-12		Helipad			Quincy
+	// 13-18 	Aerospace		Jones
+	// 19-24	Mine			Rick
 	static int hireTim(int fate){
+		System.out.println(fate);
 		if(fate <= 33){
+			System.out.println("Jong-Il");
 			return 0;
 		} else if(fate <= 59){
-			return 1;
+			System.out.println("Bob");
+			return 1 + fate % towerCount;
 		} else if( fate <= 67){
-			return 2;
+			System.out.println("Heli");
+			return 7 + fate % towerCount;
 		} else if( fate <= 82){
-			return 3;
-		} else return 4;
+			System.out.println("Aero");
+			return 13 + fate % towerCount;
+		} else{
+			System.out.println("Mine");
+			return 19 + fate % towerCount;
+		}
 	}
+	
 	
 	static int hireBasher(int fate, int towerCount){
 		if(fate<10){
