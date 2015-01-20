@@ -16,6 +16,11 @@ public class RobotPlayer {
 	static MapLocation enemybase;
 	static MapLocation[] towers;
 	static int towerCount;
+	static int lastDir;
+	static MapLocation startLoc = new MapLocation(-1, -1);
+	static boolean pathFound;
+	static String phase = "defensive";
+	static int fate;
 	
 
 	public static void run(RobotController boop){
@@ -38,7 +43,7 @@ public class RobotPlayer {
 		enemybase = rc.senseEnemyHQLocation();
 		
 		// Generate  Fate
-		int fate = rand.nextInt(100);
+		fate = rand.nextInt(100);
 		
 		// Hire
 		if(rc.getType()==RobotType.BEAVER){
@@ -49,7 +54,7 @@ public class RobotPlayer {
 		}
 		
 		// Last direction moved as int 0->7
-		int lastDir = rand.nextInt(8);
+		lastDir = rand.nextInt(8);
 		
 		while(true){
 			
@@ -346,5 +351,150 @@ public class RobotPlayer {
 			
 	}
 	
+	static void pathfindTo(MapLocation location){
+    int direction;
+    MapLocation me = rc.getLocation();
+    int xPos = me.x;
+    int yPos = me.y;
+    double curDijkstraNum = getDijkstraNumAt(xPos, yPos);
+    //potentially more efficient to use if/else than loop here
+    for (int y = -1; y < 2; y++)
+        for (int x = -1; x < 2; x++)
+            if( x == 0 || y == 0 )//dont go diagonally
+                if (getDijkstraNumAt(xPos+x, yPos+y) < curDijkstraNum)
+                    direction = coordsToDirection(x, y);
+    if(rc.isCoreReady())
+    	tryMove(intToDirection(direction)); //fine to go in a close direction
+	
+	}
+
+	static void pathfindToTower(int fate){
+		pathfindTo(towers[fate % towerCount]);
+	}
+
+	static void wanderToTower(int fate){
+		wanderTo(towers[fate % towerCount]);
+	}
+
+	static void wanderTo(MapLocation location){
+	    if( rand.nextInt(100) < 33 )
+	        wander(lastDir);
+	    else{
+	        int x = rc.getLocation().x-location.x;
+	        if(x!=0)
+	        	x /= Math.abs(x);
+	
+	        int y = rc.getLocation().y-location.y;
+	        if(y!=0)
+	        	y /= Math.abs(y);
+	        
+
+	
+	        Direction dir = coordsToDirection(x, y);
+	        tryMove(dir); //fine to go in a close direction
+	    }
+	}
+	
+	static void chaseNearestEnemy(int distance){
+	    if (startLoc.x != -1 && startLoc.y != -1)
+	        startLoc = rc.getLocation();
+	    MapLocation location = rc.senseEnemyLocations()[0]
+	    if (distanceBetween(rc.getLocation(), location) > myRange){
+	        if (pathFound)
+	            pathfindTo(location);
+	        else
+	            wanderTo(location);
+	        chaseNearestEnemy(distance); //recursion!
+	    }
+	    else if (rc.getType() != RobotType.BASHER && rc.isWeaponReady()) //bashers attack automatically
+	        attackSomething();//("unit");
+	    if (distance != -1)
+	        if( distanceBetween(startLoc, rc.getLocation()) > distance * distance)
+	        	rc.yield();
+        
+	}
+	
+	static void chaseNearestBuilding(int distance){
+		asdfasdf
+	}
+	
+	static MapLocation enemyNearby(){
+	    MapLocation[] locations = rc.senseNearbyRobots(myRange, enemyTeam);
+	    for (int i = 0; i < locations.length; i++){
+	        double dist = distanceBetween(rc.getLocation(), locations[i]);
+	        if( dist < myRange/.66)
+	            return locations[i];
+	    }
+	    return new MapLocation(-1,-1);
+	}
+	
+	static MapLocation enemyBuildingNearby(){
+	asdfasdf
+	}
+	
+	static void callForHelp(){	
+		//rc.broadcast(rc.getLocation()); //todo: find a way to encode this well
+		//hq will store broadcasts and send orders to units based on them
+	}
+	
+	
+	static boolean enoughSupply(){
+		// Caleb
+		return true;
+	}
+	
+	static Direction coordsToDirection(int x, int y){
+	    return rc.getLocation().directionTo(new MapLocation(x, y));
+	    		
+	}
+	
+	static int distanceBetween(MapLocation a, MapLocation b){
+		int dx = a.x - b.x;
+		int dy = a.y - b.y;
+		return dx * dx + dy * dy;
+	}
+
+	
+	static int doBasher(){
+    updatePhase()
+    updateAtTower()
+    updatePathFound()
+    
+    if( phase.equals("defensive"))
+        if( !atTower)
+            if( pathFound)
+                pathfindToTower(fate);
+            else
+                wanderToTower(fate);
+        if( enemyNearby())
+            chaseNearestEnemy(10); //up to 10 squares from starting position
+    else if (phase.equals("Offensive"))
+        if( pathFound )
+            pathfindToTower(closestEnemyTower());
+        else
+            wanderToTower(closestEnemyTower());
+        if( atTower)
+            attackNearestTower();
+        else if (enemyBuildingNearby())
+            chaseNearestBuilding();
+        else( if enemyNearby() )
+            chaseNearestEnemy(10);
+    else if (phase == control)
+        if( knowLocationOfAnEnemyBuilding())
+            if( pathFound)
+                pathfindToNearestBuilding();
+            else
+                chaseNearestStructure();
+        else if( enemyNearby())
+            chaseNearestEnemy(-1); //any distance
+            callForHelp();
+        else wander(lastDir);
+            
+    if( hasEnoughSupply())
+        continue;
+    else
+        rc.yield(); //no current plans for refilling supply
+        
+	}
 	
 }
