@@ -1,5 +1,6 @@
 package goldteamrules;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 import battlecode.common.*;
@@ -15,17 +16,24 @@ public class RobotPlayer {
 	static MapLocation homebase;
 	static MapLocation enemybase;
 	static MapLocation[] towers;
+	static MapLocation[] enemyTowers;
 	static int towerCount;
 	static int lastDir;
 	static MapLocation startLoc = new MapLocation(-1, -1);
-	static boolean pathFound;
+	static boolean pathFound = false;
 	static String phase = "defensive";
 	static int fate;
+	//array list of primitive arrays (one for each tower, ours and enemies)
+	static ArrayList<MapLocation[]> dijkstraMaps;
+	static int MAP_WD;
+	static int MAP_HG;
+	static double ore;
 	
 
 	public static void run(RobotController boop){
 		rc = boop;
 		rand = new Random(rc.getID());
+		
 		
 		
 		myRange = rc.getType().attackRadiusSquared;
@@ -36,6 +44,8 @@ public class RobotPlayer {
 		// Get own tower locations
 		towers = rc.senseTowerLocations();
 		towerCount = towers.length;
+		
+		enemyTowers = rc.senseEnemyTowerLocations();
 		
 		// Get own HQ location
 		homebase = rc.senseHQLocation();
@@ -59,9 +69,10 @@ public class RobotPlayer {
 		while(true){
 			
 			try {
-				double ore = rc.getTeamOre();
+				ore = rc.getTeamOre();
 				
 				if(rc.getType()==RobotType.HQ){
+					/*
 					if (rc.isWeaponReady()) {
 						attackSomething();
 					}
@@ -79,6 +90,8 @@ public class RobotPlayer {
 					if (rc.isCoreReady() && ore >= 100 && tims < 10) {
 						trySpawn(directions[rand.nextInt(8)], RobotType.BEAVER);
 					}
+					*/
+					HQAI();
 				}else if(rc.getType()==RobotType.TOWER){
 					if (rc.isWeaponReady()) {
 						attackSomething();
@@ -95,7 +108,7 @@ public class RobotPlayer {
 								int n = rand.nextInt(20);
 								if( n >= 11)
 									lastDir = wander(lastDir);
-								else if(n >=2)
+								else if(n >=1)
 									tryMine();
 								else if(ore>=200)
 									tryBuild(Direction.NORTH,RobotType.HANDWASHSTATION);
@@ -162,7 +175,7 @@ public class RobotPlayer {
 						trySpawn(rc.getLocation().directionTo(towers[getNearTower()]), RobotType.BASHER);
 					}
 				}else if(rc.getType()==RobotType.BASHER){
-					// Pursue enemy else move to closest tower
+					/*// Pursue enemy else move to closest tower
 					RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
 					int enemyCount = enemies.length;
 					MapLocation me = rc.getLocation();
@@ -170,7 +183,8 @@ public class RobotPlayer {
 						tryMove(me.directionTo(enemies[rand.nextInt(enemyCount)].location));
 					} else if(rc.isCoreReady()){
 						tryMove(me.directionTo(towers[getNearTower()]));
-					}
+					}*/
+					doBasher();
 				}
 				
 				
@@ -219,14 +233,13 @@ public class RobotPlayer {
 	
 	static void tryMove(Direction d){
 		try {
-		
 			int offsetIndex = 0;
 			int[] offsets = {0,1,-1,2,-2};
 			int dirint = directionToInt(d);
 			while (offsetIndex < 5 && !rc.canMove(directions[(dirint+offsets[offsetIndex]+8)%8])) {
 				offsetIndex++;
 			}
-			if (offsetIndex < 5) {
+			if (offsetIndex < 5 && rc.isCoreReady()) {
 				
 					rc.move(directions[(dirint+offsets[offsetIndex]+8)%8]);
 			}
@@ -398,7 +411,7 @@ public class RobotPlayer {
 	static void chaseNearestEnemy(int distance){
 	    if (startLoc.x != -1 && startLoc.y != -1)
 	        startLoc = rc.getLocation();
-	    MapLocation location = rc.senseEnemyLocations()[0]
+	    MapLocation location = rc.senseEnemyLocations()[0];
 	    if (distanceBetween(rc.getLocation(), location) > myRange){
 	        if (pathFound)
 	            pathfindTo(location);
@@ -418,14 +431,24 @@ public class RobotPlayer {
 		asdfasdf
 	}
 	
-	static MapLocation enemyNearby(){
-	    MapLocation[] locations = rc.senseNearbyRobots(myRange, enemyTeam);
-	    for (int i = 0; i < locations.length; i++){
-	        double dist = distanceBetween(rc.getLocation(), locations[i]);
+	static MapLocation nearbyEnemyLoc(){
+		RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
+	    for (int i = 0; i < enemies.length; i++){
+	        double dist = distanceBetween(rc.getLocation(), enemies[i].location);
 	        if( dist < myRange/.66)
-	            return locations[i];
+	            return enemies[i].location;
 	    }
 	    return new MapLocation(-1,-1);
+	}
+	
+	static boolean enemyNearby(){
+	    RobotInfo[] enemies = rc.senseNearbyRobots(myRange, enemyTeam);
+	    for (int i = 0; i < enemies.length; i++){
+	        double dist = distanceBetween(rc.getLocation(), enemies[i].location);
+	        if( dist < myRange/.66)
+	            return true;
+	    }
+	    return false;
 	}
 	
 	static MapLocation enemyBuildingNearby(){
@@ -453,12 +476,27 @@ public class RobotPlayer {
 		int dy = a.y - b.y;
 		return dx * dx + dy * dy;
 	}
+	
+	static boolean isAtTower(){
+		return rc.getLocation().distanceSquaredTo(towers[getNearTower()]) <= 16;
+	}
+	
+	static MapLocation closestEnemyTower(){
+		MapLocation me = rc.getLocation();
+		int i = 0;
+		int d = 1000000000;
+		for(int j = 0; j<towerCount;j++){
+			if(me.distanceSquaredTo(enemyTowers[j])<d)
+				i = j;
+		}
+		
+		return enemyTowers[i];
+	}
 
 	
 	static int doBasher(){
-    updatePhase()
-    updateAtTower()
-    updatePathFound()
+    updatePhase();
+    boolean atTower = isAtTower();
     
     if( phase.equals("defensive"))
         if( !atTower)
@@ -477,11 +515,11 @@ public class RobotPlayer {
             attackNearestTower();
         else if (enemyBuildingNearby())
             chaseNearestBuilding();
-        else( if enemyNearby() )
+        else if( enemyNearby() )
             chaseNearestEnemy(10);
-    else if (phase == control)
+    else if (phase.equals("control"))
         if( knowLocationOfAnEnemyBuilding())
-            if( pathFound)
+            if(pathFound)
                 pathfindToNearestBuilding();
             else
                 chaseNearestStructure();
@@ -495,6 +533,117 @@ public class RobotPlayer {
     else
         rc.yield(); //no current plans for refilling supply
         
+	}
+	
+	
+	
+	
+	
+
+
+	public void HQAI(){
+	    //defend the hearth
+	    if (rc.isWeaponReady()){
+	        attackSomething();
+	    }
+	    
+	    //make the tims
+	    RobotInfo[] myRobots = rc.senseNearbyRobots(999999, myTeam);
+	    int tims = 0;
+	    for (RobotInfo r : myRobots) {
+	        if (r.type == RobotType.BEAVER) {
+	            tims++;
+	        }
+	    }
+	    
+	    if (rc.isCoreReady() && ore >= 100 && tims < 10) {
+	        trySpawn(directions[rand.nextInt(8)], RobotType.BEAVER);
+	    }
+	    
+	    //find the path
+	    if (!mapFinished){
+	        pollDronesForMap();
+	    } else if (!pathFound){ //no dijkstra maps yet, find paths
+	    
+	        //this alg will not end until a path is found, hq will be open to attack
+	        // but hopefully the algorithm will finish before the other team can get
+	        // a decent army together (rough estimate 200-400 turns for pathfinding)
+	        // upside is that once that hurdle is passed, no further pathfinding is
+	        // ever required
+	        for (int i = 0; i < NumTowers*2; i++){ 
+	            //for each tower (friendly and enemy)
+	            dijkstraMaps.add(new MapLocation[MAP_WD*MAP_HG]); //initialize to Math.infinity
+
+	            //int unvisited_ct = MAP_WD*MAP_HG;
+	            //boolean[] unvisited = new boolean[MAP_WD*MAP_HG]; //initialized to all true
+	            ArrayList<Integer> queue;
+
+	            //unvisited_ct--;
+	            //int cur_dij = mapLocToInt(SenseTowers()[i]); //current loc in dij alg
+	            int cur_x = towers[i].x; //sensetowers might be wrong here
+	            int cur_y = towers[i].y;
+	            //unvisited[cur_dij] = false; //probably wrong syntax
+	            
+	            setAt(i, cur_dij, 0, 0); //can use "long" position as x and 0 as y
+
+	            while (queue.size() != 0){ //not sure about this syntax
+	                cur_x = intToMapPos(queue.get(0)).x;
+	                cur_y = intToMapPos(queue.get(0)).y;
+	                cur_num = getAt(i, cur_x, cur_y);
+	                
+	                for (int x = -1; x < 2; x++){
+	                    for (int y = -1; y < 2; y++){
+	                        if (getAt(i, cur_x+x, cur_y+y) > cur_num 
+	                         && walkable(cur_x+x, cur_y+y)){
+	                            setAt(i, cur_x+x, cur_y+y, cur_num+1);
+	                            //unvisited_ct--;
+	                            int c_pos = cur_x+x+(cur_y+y)*MAP_WD;
+	                            //unvisited[c_pos] = false;
+	                            queue.add(new Integer(c_pos));
+	                        }
+	                    }
+	                }
+
+	                queue.remove(0); //remove first element (just dealt with)
+	            }
+	        }
+	    }
+	}
+
+	public int mapLocToInt(MapLocation loc){
+	    return loc.x+loc.y*MAP_WD;
+	}
+
+	public Integer getAt(int mapNum, int x, int y){
+	    return mapLocToInt(dijkstraMaps.get(mapNum)[x+y*MAP_WD]); //not sure about this syntax
+	}
+
+	public void setAt(int mapNum, int x, int y, int n){
+	    dijkstraMaps.get(mapNum)[x+y*MAP_WD] = n; //not sure about this syntax
+	}
+
+	public void pollDronesForMap(){
+	    //todo: unpseudocodeify this
+	    foreach (drone in drones){
+	        String data = Integer.toString(readBroadcast(drone.channel));
+	        //loop through drones and check for new map data they have found
+	        MapLocation loc = new MapLocation(data.substring(1, 4), data.substring(4, 7));
+	        boolean isVoid = data.substring(0, 1);
+
+	        pos = loc.x+loc.y*MAP_WD;
+
+	        if (map[pos] == 0){
+	            if (isVoid){
+	                map[pos] = -1; //void
+	            } else {
+	                map[pos] = 1; //air
+	            }
+	        }
+	    }
+	}
+
+	public boolean walkable(int x, int y){
+	    return map[x+y*MAP_WD] == 1; //1 is air tile
 	}
 	
 }
